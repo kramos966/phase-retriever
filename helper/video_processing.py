@@ -50,8 +50,8 @@ def propaga_video(Ux, Uy, y, x, circ, carpeta, nim=100, delta_z=40,
         if video:
             it_writer.append_data(It)
             iz_writer.append_data(Iz)
-            phi_x_writer.append(phi_x)
-            phi_x_writer.append(phi_y)
+            phi_x_writer.append_data(phi_x)
+            phi_x_writer.append_data(phi_y)
         # Desem imatges
         maxIz[i] = Izz.max()    # Desa-ho TAL QUAL!!!
         maxIt[i] = It.max()
