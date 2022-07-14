@@ -381,7 +381,7 @@ class PhaseRetrieverGUI:
 
         # Save the amplitudes
         path_save = os.path.join(result_path, "amplitudes.npz")
-        np.savez(path_save, Ax=self.Ax[0], Ay=self.Ay[0])
+        np.savez(path_save, Ax=self.Ax[0], Ay=self.Ay[0], p=self.p)
         ny, nx = self.Ax[0].shape
         n = min(ny, nx)
 

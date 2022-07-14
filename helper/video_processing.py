@@ -12,6 +12,7 @@ def propaga_video(Ux, Uy, y, x, circ, carpeta, nim=100, delta_z=40,
     """Propagate the complex amplitudes a distance delta_z by takin
     nim steps. REQUIRES ffmpeg to properly save the videos.
     """
+    fps = float(fps)
     zetes = np.linspace(0, delta_z, nim)*lamb
     x = fftshift(x)
     y = fftshift(y)
