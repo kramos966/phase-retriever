@@ -272,8 +272,9 @@ class PhaseRetrieverGUI:
         self.Ay = []
         for z in self.zetes:
             noms = [self.names_dict[z][i] for i in range(6)]
-            Ix = imageio.imread(noms[0])[y0:y1, x0:x1]
-            Iy = imageio.imread(noms[2])[y0:y1, x0:x1]
+            # FIXME: He canviat 2 <-> 0 en noms
+            Ix = imageio.imread(noms[2])[y0:y1, x0:x1]
+            Iy = imageio.imread(noms[0])[y0:y1, x0:x1]
             self.Ax.append(np.sqrt(Ix))
             self.Ay.append(np.sqrt(Iy))
             
@@ -360,11 +361,32 @@ class PhaseRetrieverGUI:
             self.exphi_y = np.asarray(self.reals[1])+1j*np.asarray(self.imags[1])
             self.exphi_y = self.exphi_y.reshape((2*self.n, 2*self.n))
 
+            ny, nx = self.Ax[0].shape
+            n = min(ny, nx)
+
+            # Construct the phases with the proper phase difference
+            phi_origin = self.data["phase origin"]
+            phi_origin = phi_origin.split(",")
+            phi_origin = [min(n, int(x)) for x in phi_origin]
+            # Adjusting the phases. I take phase_origin to have exactly the
+            # phase value 0. Then, to the y component I add the value self.delta
+            # at phase_origin to create (simulate) the experimental phase difference.
+            # TODO: Check if there could be a better method for doing this.
+            dx = self.exphi_x/(abs(self.exphi_x)+1e-16) # exp(i*phi_x) = A exp(i*phi_x)/A
+            dy = self.exphi_y/(abs(self.exphi_y)+1e-16)
+            #phi_origin = np.unravel_index(np.argmax(self.Ay[0]), self.Ay[0].shape)
+            dx[:] = dx/dx[phi_origin[1], phi_origin[0]]
+            dy[:] = dy/dy[phi_origin[1], phi_origin[0]]
+            dy *= np.exp(1j*self.delta[phi_origin[1], phi_origin[0]])
+
+            self.dx = dx
+            self.dy = dy
+
             self.save_results()
 
             # Irradiance propagator
-            self.propagator.set_fields(self.Ax[0]*self.exphi_x,
-                                       self.Ay[0]*self.exphi_y,
+            self.propagator.set_fields(self.Ax[0]*dx,
+                                       self.Ay[0]*dy,
                                        self.wz)
             I = self.propagator.propagate_to(0)
             self.subplot_notebook.swap_array(I, self.n, 0, "explorer", vmin=0,
@@ -382,43 +404,9 @@ class PhaseRetrieverGUI:
         # Save the amplitudes
         path_save = os.path.join(result_path, "amplitudes.npz")
         np.savez(path_save, Ax=self.Ax[0], Ay=self.Ay[0], p=self.p)
-        ny, nx = self.Ax[0].shape
-        n = min(ny, nx)
-
-        # Construct the phases with the proper phase difference
-        phi_origin = self.data["phase origin"]
-        phi_origin = phi_origin.split(",")
-        phi_origin = [min(n, int(x)) for x in phi_origin]
-        # Adjusting the phases. I take phase_origin to have exactly the
-        # phase value 0. Then, to the y component I add the value self.delta
-        # at phase_origin to create (simulate) the experimental phase difference.
-        # TODO: Check if there could be a better method for doing this.
-        """
-        dx = np.angle(self.exphi_x)
-        dy = np.angle(self.exphi_y)
-        dx[:] = dx-dx[phi_origin[1], phi_origin[0]]
-        dy[:] = dy-dy[phi_origin[1], phi_origin[0]]
-        dy += self.delta[phi_origin[1], phi_origin[0]]
-        
         # Save the phases
         path_save = os.path.join(result_path, "phases.npz")
-        np.savez(path_save, phi_x=np.exp(1j*dx), phi_y=np.exp(1j*dy))
-
-        Ux = self.Ax[0]*np.exp(1j*dx)
-        Uy = self.Ay[0]*np.exp(1j*dy)
-        """
-        dx = self.exphi_x/(abs(self.exphi_x)+1e-16)
-        dy = self.exphi_y/(abs(self.exphi_y)+1e-16)
-        #phi_origin = np.unravel_index(np.argmax(self.Ay[0]), self.Ay[0].shape)
-        dx[:] = dx/dx[phi_origin[1], phi_origin[0]]
-        dy[:] = dy/dy[phi_origin[1], phi_origin[0]]
-        dy *= np.exp(1j*self.delta[phi_origin[1], phi_origin[0]])
-
-        self.dx = dx
-        self.dy = dy
-        # Save the phases
-        path_save = os.path.join(result_path, "phases.npz")
-        np.savez(path_save, phi_x=dx, phi_y=dy, ros=self.r)
+        np.savez(path_save, phi_x=self.dx, phi_y=self.dy, ros=self.r)
 
     def propagate_z(self, z):
         z_w = z*self.lamb

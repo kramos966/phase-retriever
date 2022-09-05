@@ -49,7 +49,7 @@ def propaga_video(Ux, Uy, y, x, circ, carpeta, nim=100, delta_z=40,
         # Gravem els vídeos
         if video:
             it_writer.append_data(It)
-            iz_writer.append_data(Iz)
+            iz_writer.append_data(Izz)
             phi_x_writer.append_data(phi_x)
             phi_x_writer.append_data(phi_y)
         # Desem imatges
