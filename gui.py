@@ -137,7 +137,7 @@ class PhaseRetrieverGUI:
         self.I = []
         n_pol = 6
         for i in range(n_pol):
-            im = imageio.imread(self.names_dict[self.zetes[0]][i])
+            im = imageio.imread(self.names_dict[self.zetes[0]][i]).astype(np.int32)
             if len(im.shape)>2:
                 im = im[:, :, 1]
             self.I.append(im)
