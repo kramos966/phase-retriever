@@ -30,6 +30,7 @@ from helper.beamnotebook import BeamNotebook
 from helper.menubar import Menubar
 from helper.focalprop import FocalPropagator
 from helper.exportwindow import ExportWindow
+from helper.radial import get_function_radius
 
 class PhaseRetrieverGUI:
     def __init__(self, parent, bg):
@@ -168,7 +169,7 @@ class PhaseRetrieverGUI:
         self.update_ROS()
 
         # Update autocorrelation plot
-        self.update_autocorr()
+        self.update_autocorr(event=None)
 
         # Update phase plot
         self.update_phase()
@@ -201,8 +202,13 @@ class PhaseRetrieverGUI:
     def update_autocorr(self, event=None):
         """Calculate the spectrum of the autocorrelation of the ROS."""
         x0, y0, x1, y1 = self.rect
-        otf = fftshift(fft2(self.im_ref[y0:y1, x0:x1]))
-        self.subplot_notebook.plot_image(np.log(abs(otf)), self.r, 0, "Autocorrelation")
+        mtf = abs(fftshift(fft2(self.im_ref[y0:y1, x0:x1])))
+        # FIXME: Look for a better way of introducing this automatic adjustment...
+        if not event:
+            r = get_function_radius(mtf, tol=1e-4)
+            if r:
+                self.r = r
+        self.subplot_notebook.plot_image(np.log(mtf), self.r, 0, "Autocorrelation")
 
     def update_phase(self, event=None):
         x0, y0, x1, y1 = self.rect
