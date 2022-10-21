@@ -16,7 +16,7 @@ import multiprocessing as mp
 import os
 
 # Functions and widgets
-from gui.file_selector import get_polarimetric_names_kavan, get_polarimetric_names
+from misc.file_selector import get_polarimetric_names_kavan, get_polarimetric_names
 from gui.video_processing import propaga_video
 from algorithm import multi 
 from gui.plotsnotebook import PlotsNotebook
