@@ -9,7 +9,7 @@ import os
 import sys
 
 def get_polarimetric_names(folder, pol_keys={0:"a0", 1:"a45", 2:"a90",
-    3:"a135", 4:"aLev", 5:"aDex"}, ftype="TIFF"):
+    3:"a135", 4:"aLev", 5:"aDex"}, ftype="png"):
     """Return a set of dictionaries containing the set of polarimetric images
     for each family of measurements. Assumes a filename of the form
 
@@ -26,7 +26,6 @@ def get_polarimetric_names(folder, pol_keys={0:"a0", 1:"a45", 2:"a90",
             image_name, f_type = fname.split(".")
         except:
             continue
-
         # Recognize the filetype and bail out if not the correct one
         if f_type != ftype:
             continue
