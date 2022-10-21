@@ -16,15 +16,15 @@ import multiprocessing as mp
 import os
 
 # Functions and widgets
-from misc.file_selector import get_polarimetric_names_kavan, get_polarimetric_names
-from gui.video_processing import propaga_video
-from algorithm import multi 
-from gui.plotsnotebook import PlotsNotebook
-from gui.beamnotebook import BeamNotebook
-from gui.menubar import Menubar
-from gui.exportwindow import ExportWindow
-from misc.focalprop import FocalPropagator
-from misc.radial import get_function_radius
+from .misc.file_selector import get_polarimetric_names_kavan, get_polarimetric_names
+from .gui.video_processing import propaga_video
+from .algorithm import multi 
+from .gui.plotsnotebook import PlotsNotebook
+from .gui.beamnotebook import BeamNotebook
+from .gui.menubar import Menubar
+from .gui.exportwindow import ExportWindow
+from .misc.focalprop import FocalPropagator
+from .misc.radial import get_function_radius
 
 class PhaseRetrieverGUI:
     def __init__(self, parent, bg):
