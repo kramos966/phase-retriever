@@ -26,7 +26,7 @@ def get_function_radius(array, tol=1e-4):
     radius = np.argwhere(mask)[0]
     
     if radius:
-        return radius[0]-r0
+        return abs(radius[0]-r0)
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
