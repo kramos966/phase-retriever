@@ -1,7 +1,6 @@
 __pycache__/
 Cir_s25/
 Cir_s5/
-sims/
 *.py[cod]
 *$py.class
 *.json
@@ -10,10 +9,12 @@ sims/
 *.mp4
 *.odg
 *.png
+!Sim_*.png
 *.xcf
 *.txt
 *.npy
 *.npz
+!amplitudes.npz
+!phases.npz
 *.zip
 *.xoj
-test.py
