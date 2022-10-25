@@ -206,7 +206,7 @@ class PhaseRetrieverGUI:
 
     def update_phase(self, event=None):
         x0, y0, x1, y1 = self.rect
-        self.delta = np.arctan2(self.ROS[4]-self.ROS[5], self.ROS[2]-self.ROS[3])
+        self.delta = np.arctan2(self.ROS[4]-self.ROS[5], self.ROS[1]-self.ROS[3])
         self.subplot_notebook.plot_image(self.delta, self.n*.1, 0, "phase")
 
     def plotclick(self, event=None):

@@ -7,6 +7,7 @@ from .algorithm import multi
 from .misc.radial import get_function_radius
 from .misc.file_selector import get_polarimetric_names
 from .misc.central_region import find_rect_region
+from .misc.stokes import get_stokes_parameters
 
 class SinglePhaseRetriever():
     # TODO: Crea una classe que encapsuli completament el mètode de recuperació de fase
@@ -16,7 +17,8 @@ class SinglePhaseRetriever():
             "n_max":     200,
             "eps":       0.01,
             "bandwidth": None,
-            "origin":    None
+            "origin":    None,
+            "lamb":      None
             }
     irradiance = None
     images = {}
@@ -115,7 +117,7 @@ class SinglePhaseRetriever():
         # Compute the Fourier Transform of the cropped irradiance to get its bandwidth
         ft = fftshift(fft2(ifftshift(self.cropped_irradiance)))
         a_ft = np.real(np.conj(ft)*ft)
-        r = get_function_radius(a_ft, tol=tol)
+        r = get_function_radius(a_ft, tol=tol)/2
         if not r:
             raise ValueError("Could not estimate the Bandwidth of the beam")
         self.options["bandwidth"] = r
@@ -129,12 +131,14 @@ class SinglePhaseRetriever():
         if not self.options["origin"]:
             self.select_phase_origin()
         p_size = self.options["pixel_size"]
+        lamb = self.options["lamb"]
+        p_size /= lamb
         # First, we construct the field amplitudes
         A_x = []
         A_y = []
         for z in self.cropped:
             I_x = self.cropped[z][2]
-            I_y = self.cropped[z][1]
+            I_y = self.cropped[z][0]
             A_x.append(np.sqrt(I_x))
             A_y.append(np.sqrt(I_y))
         # Then, we need to compute the free space transfer function H
@@ -146,14 +150,15 @@ class SinglePhaseRetriever():
         rho2 = x*x+y*y
         gamma = np.emath.sqrt(1-rho2)
         zetes = list(self.images.keys())
-        dz = zetes[1]-zetes[0]
+        dz = (zetes[1]-zetes[0])/lamb
+        print(dz*lamb)
         H = np.sqrt(2j*np.pi*gamma)
         # Get the bandwidth of the beam we are computing and remove all values of H lying outside this region.
         bw = self.options["bandwidth"]
         bandwidth_mask = (ny*ny+nx*nx < bw*bw)
         H[:] = fftshift(H*bandwidth_mask)
         # Finally, we create an initial guess for the phase of both components
-        phi_0 = 2*np.pi*np.random.rand(n, n)
+        phi_0 = np.zeros((n, n))
 
         # We set up the multiprocessing environment. Just two processes, as we have two phases to recover
         self.queues = [mp.Queue(), mp.Queue()]
@@ -167,16 +172,37 @@ class SinglePhaseRetriever():
                 [mp.Process(target=multi, args=(H, self.options["n_max"], phi_0, *A_x),
                     kwargs={"queue":self.queues[0], "real":self.reals[0], "imag":self.imags[0]}),
                  mp.Process(target=multi, args=(H, self.options["n_max"], phi_0, *A_y),
-                    kwargs={"queue":self.queues[0], "real":self.reals[0], "imag":self.imags[0]})]
+                    kwargs={"queue":self.queues[1], "real":self.reals[1], "imag":self.imags[1]})]
         # Begin monitoring
-        self._monitor_process()
+        self.monitor_process()
+        return A_x, A_y
 
-    def _monitor_process(self):
+    def monitor_process(self):
+        # TODO: Aconsegueix-ne les fases ajustades
         for p in self.processes:
             p.start()
         for p in self.processes:
             p.join()
     
+    def get_phases(self):
+        """Convert the multiprocessing arrays into the 2D phase distributions."""
+        dim = self.options["dim"]
+        exphi_x = (np.asarray(self.reals[0])+1j*np.asarray(self.imags[0])).reshape((dim, dim))
+        exphi_y = (np.asarray(self.reals[1])+1j*np.asarray(self.imags[1])).reshape((dim, dim))
+        # Now, impose the phase difference as obtained experimentally through the Stokes parameters
+        irradiances = [self.cropped[0][pol] for pol in range(6)]
+        stokes = get_stokes_parameters(irradiances)
+        delta = np.arctan2(stokes[3], stokes[2])
+        # The phase origin will correspond to the value of the phase where the maximum of irradiance lies
+        origin = self.options["origin"]
+        delta_0 = delta[origin[0], origin[1]]
+        e_delta_0 = np.exp(1j*delta_0)
+
+        exphi_x /= exphi_x[origin[0], origin[1]]
+        exphi_y /= exphi_y[origin[0], origin[1]]
+        exphi_x *= e_delta_0
+        return exphi_x, exphi_y
+
     def config(self, **options):
         #def config(self, pixel_size=None, dim=256, n_max=200, eps=0.01, radius=None, origin=None):
         for option in options:

@@ -1,6 +1,7 @@
 __pycache__/
 Cir_s25/
 Cir_s5/
+sims/
 *.py[cod]
 *$py.class
 *.json
