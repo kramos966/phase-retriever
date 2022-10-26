@@ -7,8 +7,8 @@ def get_stokes_parameters(I):
         S0 += I[i]
     S0 /= 3
     # FIXME: Check whether this defs. are right. 0 - Y, 90 - X.
-    S1 = I[2]-I[0]
-    S2 = I[3]-I[1]
-    S3 = I[5]-I[4]
+    S1 = I[0]-I[1]
+    S2 = I[1]-I[3]
+    S3 = I[4]-I[5]
 
     return S0, S1, S2, S3
