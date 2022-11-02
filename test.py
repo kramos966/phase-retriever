@@ -12,7 +12,7 @@ def get_Ez(Ex, Ey, pixel_size, lamb):
     umax = .5/pixel_size*lamb
     alpha = x/x.max()*umax
     beta = y/y.max()*umax
-    gamma = np.zeros((ny, nx), dtype=np.complex_)
+    gamma = np.zeros((ny, nx), dtype=np.float64)
     rho2 = alpha*alpha+beta*beta
     np.sqrt(1-rho2, where=rho2 < 1, out=gamma)
 
@@ -94,10 +94,10 @@ def test_basics():
     Ez_gui = get_Ez(data["phi_x"]*data_A["Ax"], data["phi_y"]*data_A["Ay"], pixel_size, lamb)
     cmap = "twilight_shifted"
     fig, ax = plt.subplots(2, 3, constrained_layout=True)
-    ax[0, 1].imshow(np.angle(ephi_x), cmap=cmap)
-    ax[0, 2].imshow(np.angle(data["phi_x"]), cmap=cmap)
-    ax[1, 1].imshow(np.angle(ephi_y), cmap=cmap)
-    ax[1, 2].imshow(np.angle(data["phi_y"]), cmap=cmap)
+    ax[0, 1].imshow(np.angle(ephi_x), cmap=cmap, interpolation="nearest")
+    ax[0, 2].imshow(np.angle(data["phi_x"]), cmap=cmap, interpolation="nearest")
+    ax[1, 1].imshow(np.angle(ephi_y), cmap=cmap, interpolation="nearest")
+    ax[1, 2].imshow(np.angle(data["phi_y"]), cmap=cmap, interpolation="nearest")
 
     ax[0, 0].imshow(Ax[0], cmap="gray")
     ax[1, 0].imshow(Ay[0], cmap="gray")
