@@ -46,6 +46,9 @@ class SinglePhaseRetriever():
                 image = imageio.imread(path)
                 self.images[z][polarization] = image.astype(np.float64)
 
+        # Compute irradiance
+        self._compute_irradiance()
+
     def _compute_irradiance(self):
         # Compute only the irradiance in the initial plane
         self.irradiance = 0
