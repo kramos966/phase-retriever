@@ -34,11 +34,13 @@ class DirectorySelector(wx.Panel):
         sizer = wx.BoxSizer(wx.VERTICAL)
 
         self.button = button = wx.Button(self, label="Search directory")
+        self.auto_butt = autobut = wx.Button(self, label="Autoadjust")
 
         self.info = info = TextedEntry(self, text)
 
-        sizer.Add(info, 0, wx.LEFT | wx.EXPAND)
-        sizer.Add(button, 0, wx.LEFT | wx.EXPAND)
+        sizer.Add(info,    0, wx.LEFT | wx.EXPAND)
+        sizer.Add(button,  0, wx.LEFT )
+        sizer.Add(autobut, 0, wx.LEFT )
 
         self.SetSizer(sizer)
 
@@ -62,6 +64,7 @@ class wxEntryPanel(wx.Panel):
         pgrid.Append(wx.propgrid.FloatProperty("Pixel size (um)", name="pixel_size", value=3.75))
         pgrid.Append(wx.propgrid.PropertyCategory("Retrieving configuration"))
         pgrid.Append(wx.propgrid.IntProperty("Number of iterations", name="n_iter", value=120))
+        pgrid.Append(wx.propgrid.IntProperty("Window size", name="window_size", value=256))
         pgrid.Append(wx.propgrid.ArrayStringProperty("Window center", name="window_center", value=["0", "0"]))
         pgrid.Append(wx.propgrid.ArrayStringProperty("Phase origin", name="phase_origin", value=["0", "0"]))
         pgrid.Append(wx.propgrid.FloatProperty("Bandwidth (pixels)", name="bandwidth", value=20))
@@ -75,13 +78,18 @@ class wxEntryPanel(wx.Panel):
                 "lambda": pgrid.GetPropertyByName("lambda"),
                 "pixel_size": pgrid.GetPropertyByName("pixel_size"),
                 "n_iter": pgrid.GetPropertyByName("n_iter"),
+                "window_size": pgrid.GetPropertyByName("window_size"),
                 "window_center": pgrid.GetPropertyByName("window_center"),
                 "phase_origin": pgrid.GetPropertyByName("phase_origin"),
                 "bandwidth": pgrid.GetPropertyByName("bandwidth"),
                 }
 
-    def GetButton(self, *args):
-        return self.polEntry.button
+    def GetButton(self, name):
+        if name == "search":
+            button = self.polEntry.button
+        elif name == "autoadjust":
+            button = self.polEntry.auto_butt
+        return button
 
     def GetTextEntry(self, *args):
         return self.polEntry.info
@@ -90,6 +98,13 @@ class wxEntryPanel(wx.Panel):
         values = {}
         for name in self.iter:
             ptr = self.iter[name]
-            values[name] = self.pgrid.GetValue(ptr)
+            values[name] = self.pgrid.GetPropertyValue(ptr)
 
         return values
+
+    def SetValue(self, **props):
+        for name in props:
+            if name not in self.iter:
+                raise NameError(f"Property {name} does not exist")
+            ptr = self.iter[name]
+            self.pgrid.SetValue(ptr, props[name])

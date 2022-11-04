@@ -39,7 +39,8 @@ class wxGUI(wx.Frame):
         sizer = wx.BoxSizer(wx.HORIZONTAL)
 
         self.entries = entries = wxEntryPanel(notebook)
-        self.entries.GetButton().Bind(wx.EVT_BUTTON, self.OnLoadClick)
+        self.entries.GetButton("search").Bind(wx.EVT_BUTTON, self.OnLoadClick)
+        self.entries.GetButton("autoadjust").Bind(wx.EVT_BUTTON, self.OnAutoadjust)
 
         # FIXME: Notebook
         notebook.AddPage(entries, "Config")
@@ -62,14 +63,46 @@ class wxGUI(wx.Frame):
         # TODO: Initialize the phase retriever
         self.retriever = PhaseRetriever()
 
+    def OnAutoadjust(self, event):
+        # TODO
+        # We center the window with the size given by the entries.
+        configs = self.entries.GetValues()
+        window_size = configs["window_size"]
+        self.retriever.config(dim=window_size)
+        top, bottom = self.retriever.center_window()
+        rect_llc = top[0], bottom[1]
+        # Adjust the phase origin
+        self.retriever.select_phase_origin()
+        phase_origin = self.retriever.options["origin"]
+        # ... and its bandwidth
+        a_ft = self.retriever.compute_bandwidth(tol=1e-5)
+        a_ft_log = np.log10(a_ft)
+
+        # Plot the relevant information...
+        self.plotter.set_imshow("Cropped irradiance", self.retriever.cropped_irradiance, cmap="gray")
+        self.plotter.set_imshow("Autocorrelation spectrum", a_ft_log, cmap="viridis")
+
+        # Draw and change the configurations as required by the autoconfiguration
+    def OnStartProcessing(self, event):
+        # Check if pixel_size is properly set, needed to do any assignment
+        p_size = self.retriever.options["pixel_size"]
+        if ((not p_size) or (p_size <= 0)):
+            error_dialog = wx.MessageDialog(self, 
+                            "Pixel size must be selected before proceeding!",
+                            style=wx.ICON_ERROR | wx.OK)
+            error_dialog.ShowModal()
+
     def OnLoadClick(self, event):
         dialog = wx.DirDialog(self, "Choose input directory", "", wx.DD_DEFAULT_STYLE | wx.DD_DIR_MUST_EXIST)
 
         # Run the window and check if it successfully finishes
-        if dialog.ShowModal() == wx.ID_OK:
+        res = dialog.ShowModal()
+        if res == wx.ID_OK:
             # Retain a reference of the user selected path
             dirname = dialog.GetPath()
         dialog.Destroy()
+        if res != wx.ID_OK:
+            return
 
         # We now update the entry to contain the selected path
         info = self.entries.GetTextEntry()
@@ -88,11 +121,8 @@ class wxGUI(wx.Frame):
         self.ShowDataset()
 
     def ShowDataset(self):
-        if not self.plots["irradiance"]:
-            ax1 = self.plots["irradiance"] = self.plotter.add("Irradiance").add_subplot()
-        else:
-            ax1 = self.plots["irradiance"]
-        ax1.imshow(self.retriever.irradiance, cmap="gray", interpolation="nearest")
+        # FIXME: This process could better be encapsulated inside the plotter class...
+        self.plotter.set_imshow("Irradiance", self.retriever.irradiance, cmap="gray")
 
     def OnQuit(self, event):
         self.Close()

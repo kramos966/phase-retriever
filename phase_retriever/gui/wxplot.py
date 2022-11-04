@@ -2,6 +2,7 @@ import wx
 import wx.lib.agw.aui as aui
 import wx.lib.mixins.inspection as wit
 
+import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.patches import Rectangle, Circle
 from matplotlib.backends.backend_wxagg import (
@@ -39,8 +40,21 @@ class Plot(wx.Panel):
             circle.y = position[1]
         self.canvas.draw()
         self.canvas.flush_events()
-    def draw_rectangle(self, position, w, h):
-        pass
+
+    def set_rectangle(self, position, w, h, color="green"):
+        """Draw a rectangle at a given position with width w and height h."""
+        if not "rectangle" in self.patches:
+            rect = self.patches["rectangle"] = Rectangle((0, 0), 1, 1, color=color, fill=True,
+                    alpha=0.2)
+        else:
+            rect = self.patches["rectangle"]
+        # We transform the coordinates of the rectangle, as position is assumed to be its center,
+        # while matplotlib requires its position from the lower left corner.
+        x_llc, y_llc = position[0]-w//2, position[1]-h//2
+        # Set its new coordinates, width and height
+        rect.set(width=w, height=h, x=x_llc, y=y_llc)
+        self.canvas.draw()
+        self.canvas.flush_events()
 
 class PlotsNotebook(wx.Panel):
     def __init__(self, parent, id=wx.ID_ANY):
@@ -49,11 +63,36 @@ class PlotsNotebook(wx.Panel):
         sizer = wx.BoxSizer()
         sizer.Add(self.nb, 1, wx.EXPAND)
         self.SetSizer(sizer)
+
+        self.pages = {}
         
-    def add(self, name="plot"):
+    def add(self, name):
+        if name in self.pages:
+            raise NameError(f"Page with name {name} already exists!")
         page = Plot(self.nb)
         self.nb.AddPage(page, name)
+        self.pages[name] = len(self.pages)
         return page.figure
+
+    def set_imshow(self, name, image, cmap="viridis"):
+        if not name in self.pages:
+            fig = self.add(name)
+            ax = fig.add_subplot()
+            ax.imshow(np.zeros((16, 16)), cmap=cmap, vmin=0, vmax=1)
+        idx = self.pages[name]
+        Plot = self.nb.GetPage(idx)
+        canvas = Plot.canvas
+        figure = Plot.figure
+        ax = figure.axes[0]
+
+        ny, nx = image.shape
+
+        ax_img = ax.get_images()[0]
+        ax_img.set_extent([0, nx, ny, 0])
+        ax_img.set_data(image)
+        ax_img.set_clim(image.min(), image.max())
+        canvas.flush_events()
+        canvas.draw()
 
 class LabelPlotsNotebook(PlotsNotebook, wx.Panel):
     def __init__(self, parent, text):

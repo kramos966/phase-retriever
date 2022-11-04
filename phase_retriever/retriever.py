@@ -13,12 +13,13 @@ class SinglePhaseRetriever():
     # TODO: Crea una classe que encapsuli completament el mètode de recuperació de fase
     options = {
             "pixel_size":None,  # MUST BE SCALED ACCORDING TO THE WAVELENGTH
-            "dim":       256,
-            "n_max":     200,
-            "eps":       0.01,
-            "bandwidth": None,
-            "origin":    None,
-            "lamb":      None
+            "dim"       :256,
+            "rect"      :None,
+            "n_max"     :200,
+            "eps"       :0.01,
+            "bandwidth" :None,
+            "origin"    :None,
+            "lamb"      :None
             }
     irradiance = None
     images = {}
@@ -101,7 +102,9 @@ class SinglePhaseRetriever():
         top, bottom = find_rect_region(self.irradiance, self.options["dim"])
 
         # Now, we crop all images to the region specified by the top, bottom pair of coords.
+        self.options["rect"] = top, bottom
         self._crop_images(top, bottom)
+        return top, bottom
 
     def select_phase_origin(self):
         """Automatically select the point of highest intensity as the phase origin of the
@@ -124,6 +127,7 @@ class SinglePhaseRetriever():
         if not r:
             raise ValueError("Could not estimate the Bandwidth of the beam")
         self.options["bandwidth"] = r
+        return a_ft
 
     def retrieve(self):
         """Phase retrieval process. Using the configured parameters, begin the phase retrieval process."""
