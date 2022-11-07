@@ -1,5 +1,6 @@
 import wx
 import numpy as np
+import json
 
 from .gui.wxplot import PlotsNotebook, LabelPlotsNotebook
 from .gui.wxentries import wxEntryPanel
@@ -54,11 +55,13 @@ class wxGUI(wx.Frame):
         # Creating a menu
         menubar = wx.MenuBar()
         fileMenu = wx.Menu()
-        fileItem = fileMenu.Append(wx.ID_EXIT, "Quit", "Quit application")
+        fileQuit = fileMenu.Append(wx.ID_EXIT, "Quit", "Quit application")
+        fileSave = fileMenu.Append(wx.ID_SAVE, "Save", "Save configuration")
         menubar.Append(fileMenu, "&File")
         self.SetMenuBar(menubar)
 
-        self.Bind(wx.EVT_MENU, self.OnQuit, fileItem)
+        self.Bind(wx.EVT_MENU, self.OnQuit, fileQuit)
+        self.Bind(wx.EVT_MENU, self.OnDump, fileSave)
 
         # TODO: Initialize the phase retriever
         self.retriever = PhaseRetriever()
@@ -70,19 +73,39 @@ class wxGUI(wx.Frame):
         window_size = configs["window_size"]
         self.retriever.config(dim=window_size)
         top, bottom = self.retriever.center_window()
-        rect_llc = top[0], bottom[1]
+        rect_center = top[0]+window_size//2, top[1]+window_size//2
         # Adjust the phase origin
         self.retriever.select_phase_origin()
         phase_origin = self.retriever.options["origin"]
-        # ... and its bandwidth
-        a_ft = self.retriever.compute_bandwidth(tol=1e-5)
-        a_ft_log = np.log10(a_ft)
+        self.retriever.compute_bandwidth()
+        bw = self.retriever.options["bandwidth"]
 
+        # Set the autoadjusted values to the entry panel
+        self.entries.SetValue(bandwidth=bw, 
+                window_center=[str(x) for x in rect_center],
+                phase_origin=[str(x) for x in phase_origin])
+
+        # Replot everything
+        self.OnReconfig()
+
+    def OnReconfig(self, event=None):
+        # First, we need to get all the configurations from the entries
+        values = self.entries.GetValues()
+        bw = values["bandwidth"]*2
+        rect_center = values["window_center"]
+        width = values["window_size"]
+        top = [int(i)-width//2 for i in rect_center]
+        a_ft_log = np.log10(self.retriever.a_ft)
         # Plot the relevant information...
         self.plotter.set_imshow("Cropped irradiance", self.retriever.cropped_irradiance, cmap="gray")
         self.plotter.set_imshow("Autocorrelation spectrum", a_ft_log, cmap="viridis")
 
-        # Draw and change the configurations as required by the autoconfiguration
+        # Draw the rectangle and circle specifiying the region of interest and the
+        # bandwidth.
+        self.plotter.set_rectangle("Irradiance", top, width, width)
+        # Draw the bandwidth
+        self.plotter.set_circle("Autocorrelation spectrum", (width//2, width//2), bw, color="red")
+
     def OnStartProcessing(self, event):
         # Check if pixel_size is properly set, needed to do any assignment
         p_size = self.retriever.options["pixel_size"]
@@ -100,13 +123,13 @@ class wxGUI(wx.Frame):
         if res == wx.ID_OK:
             # Retain a reference of the user selected path
             dirname = dialog.GetPath()
-        dialog.Destroy()
-        if res != wx.ID_OK:
+        elif res == wx.ID_CANCEL:
+            dialog.Destroy()
             return
+        dialog.Destroy()
 
         # We now update the entry to contain the selected path
-        info = self.entries.GetTextEntry()
-        info.ChangeValue(dirname)
+        self.entries.SetValue(path=dirname)
 
         # Finally, we load all images into the phase retriever
         try:
@@ -121,8 +144,23 @@ class wxGUI(wx.Frame):
         self.ShowDataset()
 
     def ShowDataset(self):
-        # FIXME: This process could better be encapsulated inside the plotter class...
+        # Irradiance plots with the rectangle indicating where exactly the window is
+        # located.
         self.plotter.set_imshow("Irradiance", self.retriever.irradiance, cmap="gray")
+
+    def OnDump(self, event):
+        """Dump current configuration on a json file, to be loaded later."""
+        configs = self.entries.GetValues()
+        # Open a dialog to ask where to save it
+        with wx.FileDialog(self, "Save beam configuration", style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as dialog:
+            if dialog.ShowModal() == wx.ID_CANCEL:
+                return
+            path = dialog.GetPath()
+            try:
+                with open(path, "w") as f:
+                    json.dump(configs, f, indent=4, sort_keys=True)
+            except IOError:
+                wx.LogError(f"Can't save data in file {path}")
 
     def OnQuit(self, event):
         self.Close()

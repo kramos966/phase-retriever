@@ -46,11 +46,12 @@ class Plot(wx.Panel):
         if not "rectangle" in self.patches:
             rect = self.patches["rectangle"] = Rectangle((0, 0), 1, 1, color=color, fill=True,
                     alpha=0.2)
+            self.figure.axes[0].add_patch(rect)
         else:
             rect = self.patches["rectangle"]
         # We transform the coordinates of the rectangle, as position is assumed to be its center,
         # while matplotlib requires its position from the lower left corner.
-        x_llc, y_llc = position[0]-w//2, position[1]-h//2
+        x_llc, y_llc = position[0], position[1]
         # Set its new coordinates, width and height
         rect.set(width=w, height=h, x=x_llc, y=y_llc)
         self.canvas.draw()
@@ -75,14 +76,14 @@ class PlotsNotebook(wx.Panel):
         return page.figure
 
     def set_imshow(self, name, image, cmap="viridis"):
-        if not name in self.pages:
+        if name not in self.pages:
             fig = self.add(name)
             ax = fig.add_subplot()
             ax.imshow(np.zeros((16, 16)), cmap=cmap, vmin=0, vmax=1)
         idx = self.pages[name]
-        Plot = self.nb.GetPage(idx)
-        canvas = Plot.canvas
-        figure = Plot.figure
+        plot = self.nb.GetPage(idx)
+        canvas = plot.canvas
+        figure = plot.figure
         ax = figure.axes[0]
 
         ny, nx = image.shape
@@ -93,6 +94,20 @@ class PlotsNotebook(wx.Panel):
         ax_img.set_clim(image.min(), image.max())
         canvas.flush_events()
         canvas.draw()
+
+    def set_rectangle(self, name, position, w, h, color="green"):
+        if name not in self.pages:
+            raise NameError(f"Notebook page with name {name} does not exist")
+        idx = self.pages[name]
+        plot = self.nb.GetPage(idx)
+        plot.set_rectangle(position, w, h, color=color)
+
+    def set_circle(self, name, position, r, color="green"):
+        if name not in self.pages:
+            raise NameError(f"Notebook page with name {name} does not exist")
+        idx = self.pages[name]
+        plot = self.nb.GetPage(idx)
+        plot.draw_circle(position, r, color=color)
 
 class LabelPlotsNotebook(PlotsNotebook, wx.Panel):
     def __init__(self, parent, text):

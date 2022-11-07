@@ -19,19 +19,21 @@ class SinglePhaseRetriever():
             "eps"       :0.01,
             "bandwidth" :None,
             "origin"    :None,
-            "lamb"      :None
+            "lamb"      :None,
+            "path"      :None
             }
     irradiance = None
     images = {}
     cropped = {}
     cropped_irradiance = None
+    a_ft = None
     def __init__(self, n_max=200):
         self.options["n_max"] = n_max          # Maximum number of iterations
 
     def load_dataset(self, path):
         self.irradiance = None
         self.images = {}
-        self.path = path
+        self.options["path"] = path
         
         self.polarimetric_sets = get_polarimetric_names(path)
         if not self.polarimetric_sets:
@@ -122,7 +124,7 @@ class SinglePhaseRetriever():
             self._compute_irradiance()
         # Compute the Fourier Transform of the cropped irradiance to get its bandwidth
         ft = fftshift(fft2(ifftshift(self.cropped_irradiance)))
-        a_ft = np.real(np.conj(ft)*ft)
+        self.a_ft = a_ft = np.real(np.conj(ft)*ft)
         r = get_function_radius(a_ft, tol=tol)/2
         if not r:
             raise ValueError("Could not estimate the Bandwidth of the beam")

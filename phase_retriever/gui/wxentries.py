@@ -31,16 +31,20 @@ class DirectorySelector(wx.Panel):
         self.init(text)
 
     def init(self, text):
+        # TODO: Remove references to old path indicator box
         sizer = wx.BoxSizer(wx.VERTICAL)
+        #hsizer = wx.BoxSizer(wx.HORIZONTAL)
 
         self.button = button = wx.Button(self, label="Search directory")
         self.auto_butt = autobut = wx.Button(self, label="Autoadjust")
 
-        self.info = info = TextedEntry(self, text)
+        #self.info = info = TextedEntry(self, text)
 
-        sizer.Add(info,    0, wx.LEFT | wx.EXPAND)
-        sizer.Add(button,  0, wx.LEFT )
-        sizer.Add(autobut, 0, wx.LEFT )
+        #hsizer.Add(info, 1, wx.CENTRE | wx.EXPAND)
+
+        #sizer.Add(hsizer,  0, wx.CENTRE | wx.EXPAND)
+        sizer.Add(button,  0, wx.CENTRE )
+        sizer.Add(autobut, 0, wx.CENTRE )
 
         self.SetSizer(sizer)
 
@@ -59,6 +63,8 @@ class wxEntryPanel(wx.Panel):
         # To hold all the data entries, we creat a grid (wokrsheet-like)
         self.pgrid = pgrid = wx.propgrid.PropertyGrid(self, name="EntryPanel")
 
+        pgrid.Append(wx.propgrid.PropertyCategory("Dataset path"))
+        pgrid.Append(wx.propgrid.StringProperty("Working Directory", name="path", value=""))
         pgrid.Append(wx.propgrid.PropertyCategory("Measurement properties"))
         pgrid.Append(wx.propgrid.FloatProperty("Wavelength (um)", name="lambda", value=0.52))
         pgrid.Append(wx.propgrid.FloatProperty("Pixel size (um)", name="pixel_size", value=3.75))
@@ -82,6 +88,7 @@ class wxEntryPanel(wx.Panel):
                 "window_center": pgrid.GetPropertyByName("window_center"),
                 "phase_origin": pgrid.GetPropertyByName("phase_origin"),
                 "bandwidth": pgrid.GetPropertyByName("bandwidth"),
+                "path": pgrid.GetPropertyByName("path")
                 }
 
     def GetButton(self, name):
@@ -107,4 +114,4 @@ class wxEntryPanel(wx.Panel):
             if name not in self.iter:
                 raise NameError(f"Property {name} does not exist")
             ptr = self.iter[name]
-            self.pgrid.SetValue(ptr, props[name])
+            self.pgrid.SetPropertyValue(ptr, props[name])
