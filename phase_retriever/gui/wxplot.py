@@ -35,7 +35,7 @@ class Plot(wx.Panel):
             ax.add_patch(circle)
         else:
             circle = self.patches["circle"]
-            circle.set_radius(self.r)
+            circle.set_radius(r)
             circle.x = position[0]
             circle.y = position[1]
         self.canvas.draw()
@@ -51,9 +51,18 @@ class Plot(wx.Panel):
             rect = self.patches["rectangle"]
         # We transform the coordinates of the rectangle, as position is assumed to be its center,
         # while matplotlib requires its position from the lower left corner.
-        x_llc, y_llc = position[0], position[1]
+        x_llc, y_llc = position[1], position[0]
         # Set its new coordinates, width and height
         rect.set(width=w, height=h, x=x_llc, y=y_llc)
+        self.canvas.draw()
+        self.canvas.flush_events()
+
+    def set_data(self, ax_num, data):
+        ax = self.figure.axes[ax_num]
+        line = ax.lines[0]
+        # Set new data
+        line.set_data(*data)
+        ax.relim()
         self.canvas.draw()
         self.canvas.flush_events()
 
@@ -73,11 +82,14 @@ class PlotsNotebook(wx.Panel):
         page = Plot(self.nb)
         self.nb.AddPage(page, name)
         self.pages[name] = len(self.pages)
-        return page.figure
+        return page
+
+    def get_page(self, name):
+        return self.nb.GetPage(self.pages[name])
 
     def set_imshow(self, name, image, cmap="viridis"):
         if name not in self.pages:
-            fig = self.add(name)
+            fig = self.add(name).figure
             ax = fig.add_subplot()
             ax.imshow(np.zeros((16, 16)), cmap=cmap, vmin=0, vmax=1)
         idx = self.pages[name]

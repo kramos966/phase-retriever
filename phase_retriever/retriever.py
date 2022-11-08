@@ -9,6 +9,18 @@ from .misc.file_selector import get_polarimetric_names
 from .misc.central_region import find_rect_region
 from .misc.stokes import get_stokes_parameters
 
+def lowpass_filter(bw, *amps):
+    ny, nx = amps[0].shape
+    y, x = np.mgrid[-ny//2:ny//2, -nx//2:nx//2]
+    mask = x*x + y*y < bw*bw
+    filtered = []
+    for A in amps:
+        a_ft = fftshift(fft2(ifftshift(A)))
+        a_ft *= mask
+        a_filt = fftshift(ifft2(ifftshift(a_ft)))
+        filtered.append(a_filt)
+    return filtered
+
 class SinglePhaseRetriever():
     # TODO: Crea una classe que encapsuli completament el mètode de recuperació de fase
     options = {
@@ -27,6 +39,7 @@ class SinglePhaseRetriever():
     cropped = {}
     cropped_irradiance = None
     a_ft = None
+    mse = [[], []]
     def __init__(self, n_max=200):
         self.options["n_max"] = n_max          # Maximum number of iterations
 
@@ -119,19 +132,24 @@ class SinglePhaseRetriever():
         loc = yloc[0], xloc[0]
         self.options["origin"] = loc
 
-    def compute_bandwidth(self, tol=1e-4):
+    def _compute_spectrum(self):
         if not self.cropped:
-            self._compute_irradiance()
-        # Compute the Fourier Transform of the cropped irradiance to get its bandwidth
+            self._crop_images(*self.options["rect"])
         ft = fftshift(fft2(ifftshift(self.cropped_irradiance)))
         self.a_ft = a_ft = np.real(np.conj(ft)*ft)
-        r = get_function_radius(a_ft, tol=tol)/2
+
+    def compute_bandwidth(self, tol=1e-4):
+        if not self.cropped:
+            self._crop_images(*self.options["rect"])
+        # Compute the Fourier Transform of the cropped irradiance to get its bandwidth
+        self._compute_spectrum()
+        r = get_function_radius(self.a_ft, tol=tol)/2
         if not r:
             raise ValueError("Could not estimate the Bandwidth of the beam")
         self.options["bandwidth"] = r
-        return a_ft
+        return self.a_ft
 
-    def retrieve(self):
+    def retrieve(self, args=(), monitor=True):
         """Phase retrieval process. Using the configured parameters, begin the phase retrieval process."""
         if not self.options["pixel_size"]:
             raise ValueError("Pixel size not specified")
@@ -139,35 +157,38 @@ class SinglePhaseRetriever():
             self.compute_bandwidth()
         if not self.options["origin"]:
             self.select_phase_origin()
-        p_size = self.options["pixel_size"]
         lamb = self.options["lamb"]
-        p_size /= lamb
+        p_size = self.options["pixel_size"]/lamb
+        bw = self.options["bandwidth"]
         # First, we construct the field amplitudes
-        A_x = []
-        A_y = []
+        self.A_x = A_x = []
+        self.A_y = A_y = []
         for z in self.cropped:
             I_x = self.cropped[z][2]
             I_y = self.cropped[z][0]
-            A_x.append(np.sqrt(I_x))
-            A_y.append(np.sqrt(I_y))
+            # Filtering the irradiances to remove high frequency noise fluctuations
+            A_xfilt = np.real(np.sqrt(lowpass_filter(bw*2, I_x)[0]))
+            A_yfilt = np.real(np.sqrt(lowpass_filter(bw*2, I_y)[0]))
+            A_x.append(A_xfilt)
+            A_y.append(A_yfilt)
         # Then, we need to compute the free space transfer function H
         n = self.options["dim"]
         ny, nx = np.mgrid[-n//2:n//2, -n//2:n//2]
+        bandwidth_mask = (ny*ny+nx*nx < bw*bw)
         umax = .5/p_size
         x = nx/nx.max()*umax
         y = ny/ny.max()*umax
         rho2 = x*x+y*y
-        gamma = np.emath.sqrt(1-rho2)
+        gamma = np.zeros((n, n), dtype=np.float_)
+        np.sqrt(1-rho2, out=gamma, where=bandwidth_mask)
         zetes = list(self.images.keys())
         dz = (zetes[1]-zetes[0])/lamb
-        print(dz*lamb)
-        H = np.sqrt(2j*np.pi*gamma)
+        H = np.exp(2j*np.pi*gamma*dz)
         # Get the bandwidth of the beam we are computing and remove all values of H lying outside this region.
-        bw = self.options["bandwidth"]
-        bandwidth_mask = (ny*ny+nx*nx < bw*bw)
         H[:] = fftshift(H*bandwidth_mask)
         # Finally, we create an initial guess for the phase of both components
-        phi_0 = np.zeros((n, n))
+        #phi_0 = np.zeros((n, n))
+        phi_0 = np.random.rand(n, n)
 
         # We set up the multiprocessing environment. Just two processes, as we have two phases to recover
         self.queues = [mp.Queue(), mp.Queue()]
@@ -183,15 +204,31 @@ class SinglePhaseRetriever():
                  mp.Process(target=multi, args=(H, self.options["n_max"], phi_0, *A_y),
                     kwargs={"queue":self.queues[1], "real":self.reals[1], "imag":self.imags[1]})]
         # Begin monitoring
-        self.monitor_process()
+        if monitor:
+            self.monitor_process(*args)
         return A_x, A_y
 
-    def monitor_process(self):
+    def update_function(self, *args):
+        pass
+
+    def monitor_process(self, *args):
         # TODO: Aconsegueix-ne les fases ajustades
         for p in self.processes:
             p.start()
-        for p in self.processes:
-            p.join()
+            p.join(timeout=0)
+        alive = any([p.is_alive() for p in self.processes])
+        while alive:
+            for i, p in enumerate(self.processes):
+                full = True
+                while full:
+                    try:
+                        data = self.queues[i].get_nowait()
+                        self.mse[i].append(data)
+                    except:
+                        full = False
+            alive = any([p.is_alive() for p in self.processes])
+            # Update through an update function if necessary
+            self.update_function(*args)
     
     def get_phases(self):
         """Convert the multiprocessing arrays into the 2D phase distributions."""
@@ -218,6 +255,8 @@ class SinglePhaseRetriever():
             # If the option is in the list, we change it...
             if option in self.options:
                 self.options[option] = options[option]
+                if option == "path":
+                    self.load_dataset(options[option])
             # Else, we raise an exception
             else:
                 raise KeyError(f"Option {option} does not exist.")

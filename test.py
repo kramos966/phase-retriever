@@ -28,8 +28,8 @@ def get_Ez(Ex, Ey, pixel_size, lamb):
 def test_basics():
     success = True
     retriever = PhaseRetriever()
-    pixel_size = 0.0469e-3
-    lamb = 520e-6
+    pixel_size = 0.0469
+    lamb = 0.52
     M = 1
     p_eff = pixel_size/M/lamb
 
@@ -84,6 +84,7 @@ def test_basics():
         print(option, retriever.options[option])
 
     Ax, Ay = retriever.retrieve()
+    print(len(retriever.mse[0]))
 
     ephi_x, ephi_y = retriever.get_phases()
 
@@ -110,6 +111,12 @@ def test_basics():
     ax2[1].imshow(np.real(np.conj(Ez)*Ez), cmap="gray")
     ax2[0].set_title("E_z GUI")
     ax2[1].set_title("E_z this program")
+
+    fig3, ax3 = plt.subplots(1, 2, constrained_layout=True)
+    msx, msy = retriever.mse
+    ax3[0].plot(msx)
+    ax3[1].plot(msy)
+
     plt.show()
 
     return success

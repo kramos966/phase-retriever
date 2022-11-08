@@ -37,14 +37,16 @@ class DirectorySelector(wx.Panel):
 
         self.button = button = wx.Button(self, label="Search directory")
         self.auto_butt = autobut = wx.Button(self, label="Autoadjust")
+        self.ret_butt = ret_butt = wx.Button(self, label="Begin retrieval")
 
         #self.info = info = TextedEntry(self, text)
 
         #hsizer.Add(info, 1, wx.CENTRE | wx.EXPAND)
 
         #sizer.Add(hsizer,  0, wx.CENTRE | wx.EXPAND)
-        sizer.Add(button,  0, wx.CENTRE )
-        sizer.Add(autobut, 0, wx.CENTRE )
+        sizer.Add(button,   0, wx.CENTRE)
+        sizer.Add(autobut,  0, wx.CENTRE)
+        sizer.Add(ret_butt, 0, wx.CENTRE)
 
         self.SetSizer(sizer)
 
@@ -81,7 +83,7 @@ class wxEntryPanel(wx.Panel):
 
         # Dictionary with pairs of key-pointer to each property in the grid
         self.iter = {
-                "lambda": pgrid.GetPropertyByName("lambda"),
+                "lamb": pgrid.GetPropertyByName("lambda"),
                 "pixel_size": pgrid.GetPropertyByName("pixel_size"),
                 "n_iter": pgrid.GetPropertyByName("n_iter"),
                 "window_size": pgrid.GetPropertyByName("window_size"),
@@ -96,6 +98,8 @@ class wxEntryPanel(wx.Panel):
             button = self.polEntry.button
         elif name == "autoadjust":
             button = self.polEntry.auto_butt
+        elif name == "begin":
+            button = self.polEntry.ret_butt
         return button
 
     def GetTextEntry(self, *args):
