@@ -13,7 +13,7 @@ from matplotlib.backends.backend_wxagg import (
 class Plot(wx.Panel):
     def __init__(self, parent, id=wx.ID_ANY, dpi=None, **kwargs):
         super().__init__(parent, id=id, **kwargs)
-        self.figure = Figure(dpi=dpi, figsize=(2, 2))
+        self.figure = Figure(dpi=dpi, figsize=(2, 2), constrained_layout=True)
         self.canvas = FigureCanvas(self, -1, self.figure)
         self.toolbar = NavigationToolbar(self.canvas)
         self.toolbar.Realize()
@@ -87,16 +87,19 @@ class PlotsNotebook(wx.Panel):
     def get_page(self, name):
         return self.nb.GetPage(self.pages[name])
 
-    def set_imshow(self, name, image, cmap="viridis"):
+    def set_imshow(self, name, image, cmap="viridis", shape=(1, 1), num=1, vmin=0, vmax=1):
         if name not in self.pages:
             fig = self.add(name).figure
-            ax = fig.add_subplot()
-            ax.imshow(np.zeros((16, 16)), cmap=cmap, vmin=0, vmax=1)
+            ax = fig.add_subplot(*shape, num)
+            ax.imshow(np.zeros((16, 16)), cmap=cmap, vmin=vmin, vmax=vmax)
         idx = self.pages[name]
         plot = self.nb.GetPage(idx)
         canvas = plot.canvas
         figure = plot.figure
-        ax = figure.axes[0]
+        if num > len(figure.axes):
+            ax = figure.add_subplot(*shape, num)
+            ax.imshow(np.zeros((16, 16)), cmap=cmap, vmin=vmin, vmax=vmax)
+        ax = figure.axes[num-1]
 
         ny, nx = image.shape
 
@@ -120,6 +123,23 @@ class PlotsNotebook(wx.Panel):
         idx = self.pages[name]
         plot = self.nb.GetPage(idx)
         plot.draw_circle(position, r, color=color)
+
+    def set_colorbar(self, name, share=(0, 2)):
+        idx = self.pages[name]
+        plot = self.nb.GetPage(idx)
+        figure = plot.figure
+        axes = figure.axes
+
+        im = axes[share[0]].get_images()[0]
+
+        ax_shared = []
+        for i in share:
+            ax_shared.append(axes[i])
+
+        figure.colorbar(im, ax=ax_shared)
+
+        plot.canvas.draw()
+
 
 class LabelPlotsNotebook(PlotsNotebook, wx.Panel):
     def __init__(self, parent, text):

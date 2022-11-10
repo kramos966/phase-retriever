@@ -1,21 +1,29 @@
 import wx
+from wx.lib.agw.floatspin import EVT_FLOATSPIN
 import numpy as np
 import json
 import multiprocessing as mp
 
 from .gui.wxplot import PlotsNotebook, LabelPlotsNotebook
 from .gui.wxentries import wxEntryPanel
+from .gui.wxexplore import DataExplorer
 from .retriever import PhaseRetriever
+from .misc.focalprop import FocalPropagator
+
+delta_t = 30    # ms
 
 class GUIRetriever(PhaseRetriever):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self.finished = False
+
     def monitor_process(self, *args):
+        self.finished = False
         for p in self.processes:
             p.start()
             #p.join(timeout=0)
-        wx.CallAfter(self.check_status, *args)
+        wx.CallLater(delta_t, self.check_status, *args)
 
     def check_status(self, plot):
         for i, p in enumerate(self.processes):
@@ -30,10 +38,12 @@ class GUIRetriever(PhaseRetriever):
         self.update_function(plot)
         # Check the processes again if they are still alive
         if status:
-            wx.CallAfter(self.check_status, plot)
+            # FIXME: Recursion!!!!
+            wx.CallLater(delta_t, self.check_status, plot)
         else:
             for p in self.processes:
-                p.join()
+                p.join(timeout=0)
+            self.finished = True
 
     def update_function(self, plot):
         # TODO: Update manually so not to lock the whole interface...
@@ -43,6 +53,7 @@ class GUIRetriever(PhaseRetriever):
             line.set_data(range(len(self.mse[i])), self.mse[i])
             ax.relim()
             ax.autoscale_view()
+        plot.canvas.draw()
 
 class wxGUI(wx.Frame):
     def __init__(self, parent, title):
@@ -60,6 +71,8 @@ class wxGUI(wx.Frame):
         self.init()
         self.Centre()
 
+        self.propagator = FocalPropagator()
+
     def init(self):
         # Initializing the plotter
         self.plotter = plotter = PlotsNotebook(self)
@@ -75,9 +88,13 @@ class wxGUI(wx.Frame):
         self.entries.GetButton("autoadjust").Bind(wx.EVT_BUTTON, self.OnAutoadjust)
         self.entries.GetButton("begin").Bind(wx.EVT_BUTTON, self.OnRetrieve)
 
+        # Explorer tab
+        self.explorer = explorer = DataExplorer(notebook)
+        explorer.GetSpin().Bind(EVT_FLOATSPIN, self.OnExplore)
+
         # FIXME: Notebook
         notebook.AddPage(entries, "Config")
-        notebook.AddPage(wx.Panel(notebook), "Exploration")
+        notebook.AddPage(explorer, "Exploration")
 
         # Adding it, from left to right, to the sizer
         sizer.Add(notebook, 1, wx.LEFT | wx.EXPAND)
@@ -141,7 +158,7 @@ class wxGUI(wx.Frame):
         bottom = [int(i)+width//2 for i in rect_center]
         # Change configurations on the retriever
         self.retriever.config(path=values["path"], lamb=values["lamb"],
-                rect=(top, bottom), bandwidth=bw/2, dim=width, pixel_size=values["pixel_size"])
+                rect=(top, bottom), bandwidth=bw/2, dim=width, pixel_size=values["pixel_size"], n_max=values["n_iter"])
         self.retriever._compute_spectrum()
         a_ft_log = np.log10(self.retriever.a_ft)
         # Plot the relevant information...
@@ -250,7 +267,52 @@ class wxGUI(wx.Frame):
             ax.plot([], [])
         # Then, we call the retriever to commence the process
         self.retriever.retrieve(args=(plot,), monitor=False)
-        wx.CallAfter(self.retriever.monitor_process, plot)
+        wx.CallLater(delta_t, self.retriever.monitor_process, plot)
+        wx.CallLater(delta_t, self.OnCheckCompletion)
+
+    def OnCheckCompletion(self, event=None):
+        if self.retriever.finished:
+            self.OnFinished()
+        else:
+            wx.CallLater(delta_t, self.OnCheckCompletion)
+
+    def OnFinished(self):
+        """Plot results once the phase retriever is finished"""
+        A_x, A_y = self.retriever.A_x[0], self.retriever.A_y[0]
+        ephi_x, ephi_y = self.retriever.get_phases()
+        Ex = A_x*ephi_x
+        Ey = A_y*ephi_y
+        self.update_results(Ex, Ey)
+
+        self.plotter.set_colorbar("Results")
+
+        # TODO: Prepare the propagator to explore the phase retrieval results...
+        configs = self.entries.GetValues()
+        pixel_size = configs["pixel_size"]/configs["lamb"]
+        self.propagator["Ex"] = Ex
+        self.propagator["Ey"] = Ey
+        self.propagator["pixel_size"] = pixel_size
+        self.propagator.create_gamma()
+        self.propagator.create_spectra()
+    
+    def update_results(self, Ex, Ey):
+        self.plotter.set_imshow("Results", np.angle(Ex), shape=(2, 2), num=1, cmap="twilight_shifted",
+                vmin=-np.pi, vmax=np.pi)
+        self.plotter.set_imshow("Results", abs(Ex), shape=(2, 2), num=2)
+        self.plotter.set_imshow("Results", np.angle(Ey), shape=(2, 2), num=3, cmap="twilight_shifted",
+                vmin=-np.pi, vmax=np.pi)
+        self.plotter.set_imshow("Results", abs(Ey), shape=(2, 2), num=4)
+
+    def OnExplore(self, event):
+        if not self.retriever.finished:
+            dialog =  wx.MessageDialog(self, "Phase retrieval not yet finished!", style=wx.ICON_ERROR | wx.OK)
+            dialog.ShowModal()
+            dialog.Destroy()
+            return
+        # Get the selected z propagation value (wavelength units)
+        z = self.explorer.GetZ()
+        Ex, Ey = self.propagator.propagate_field_to(z)
+        self.update_results(Ex, Ey)
 
     def OnExport(self, event):
         try:
@@ -258,7 +320,8 @@ class wxGUI(wx.Frame):
             ephi_x, ephi_y = self.retriever.get_phases()
             data = {"A_x":Ax, "A_y":Ay, "phi_x": ephi_x, "phi_y": ephi_y}
 
-            with wx.FileDialog(self, "Save recovered data", style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, wildcard="*.npz") as save_dialog:
+            with wx.FileDialog(self, "Save recovered data", style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT, 
+                    wildcard="*.npz") as save_dialog:
                 if save_dialog.ShowModal() == wx.ID_CANCEL:
                     return
                 path = save_dialog.GetPath()

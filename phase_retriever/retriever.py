@@ -151,6 +151,7 @@ class SinglePhaseRetriever():
 
     def retrieve(self, args=(), monitor=True):
         """Phase retrieval process. Using the configured parameters, begin the phase retrieval process."""
+        self.mse = [[], []] # Delete all possible values of the last mse
         if not self.options["pixel_size"]:
             raise ValueError("Pixel size not specified")
         if not self.options["bandwidth"]:
