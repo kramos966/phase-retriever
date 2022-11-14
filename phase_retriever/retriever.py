@@ -15,6 +15,8 @@ def bound_rect_to_im(shape, rect):
     top, bottom = rect
     x0, y0 = top
     x1, y1 = bottom
+    width = abs(x0-x1)
+    height = abs(y0-y1)
     if x0 < 0:
         x0 = 0
         x1 = width
