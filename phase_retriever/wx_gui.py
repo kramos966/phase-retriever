@@ -363,7 +363,7 @@ class wxGUI(wx.Frame):
             elif key == "window_size":
                 width = values[key]
                 if width != self.retriever["dim"]:
-                    self.retriever["dim"] = dim
+                    self.retriever["dim"] = width
                     rect_center = values["window_center"]
                     top = [int(i)-width//2 for i in rect_center]
                     bottom = [int(i)+width//2 for i in rect_center]
