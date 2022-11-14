@@ -36,8 +36,7 @@ class Plot(wx.Panel):
         else:
             circle = self.patches["circle"]
             circle.set_radius(r)
-            circle.x = position[0]
-            circle.y = position[1]
+            circle.set_center(position)
         self.canvas.draw()
         self.canvas.flush_events()
 

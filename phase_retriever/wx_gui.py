@@ -132,6 +132,7 @@ class wxGUI(wx.Frame):
         # TODO
         # We center the window with the size given by the entries.
         configs = self.entries.GetValues()
+        print(configs)
         window_size = configs["window_size"]
         self.retriever.config(dim=window_size)
         top, bottom = self.retriever.center_window()
@@ -163,6 +164,7 @@ class wxGUI(wx.Frame):
         bw = values["bandwidth"]*2
         rect_center = values["window_center"]
         width = values["window_size"]
+        print(width)
         top = [int(i)-width//2 for i in rect_center]
         bottom = [int(i)+width//2 for i in rect_center]
         # Change configurations on the retriever
