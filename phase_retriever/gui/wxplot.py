@@ -75,6 +75,7 @@ class PlotsNotebook(wx.Panel):
         self.SetSizer(sizer)
 
         self.pages = {}
+        self.colorbar = None
         
     def add(self, name):
         if name in self.pages:
@@ -136,7 +137,8 @@ class PlotsNotebook(wx.Panel):
         for i in share:
             ax_shared.append(axes[i])
 
-        figure.colorbar(im, ax=ax_shared)
+        if not self.colorbar:
+            self.colorbar = figure.colorbar(im, ax=ax_shared)
 
         plot.canvas.draw()
 

@@ -9,6 +9,27 @@ from .misc.file_selector import get_polarimetric_names
 from .misc.central_region import find_rect_region
 from .misc.stokes import get_stokes_parameters
 
+def bound_rect_to_im(shape, rect):
+    """Return correct rect coordinates, bound to the physical limits given by shape."""
+    ny, nx = shape
+    top, bottom = rect
+    x0, y0 = top
+    x1, y1 = bottom
+    if x0 < 0:
+        x0 = 0
+        x1 = width
+    elif x1 >= nx:
+        x1 = nx
+        x0 = nx-width
+    if y0 < 0:
+        y0 = 0
+        y1 = height
+    elif y1 >= nx:
+        y1 = nx
+        y0 = nx-height
+
+    return (x0, y0), (x1, y1)
+
 def lowpass_filter(bw, *amps):
     ny, nx = amps[0].shape
     y, x = np.mgrid[-ny//2:ny//2, -nx//2:nx//2]
@@ -43,11 +64,25 @@ class SinglePhaseRetriever():
     def __init__(self, n_max=200):
         self.options["n_max"] = n_max          # Maximum number of iterations
 
-    def load_dataset(self, path):
+    def __getitem__(self, key):
+        return self.options[key]
+
+    def __setitem__(self, key, value):
+        # TODO: Check types correctly
+        self.config(**{key:value})
+
+    def load_dataset(self, path=None):
         self.irradiance = None
         self.images = {}
-        self.options["path"] = path
-        
+        # If the user does not input a path
+        if not path:
+            # If there is no path already inputted
+            if not self["path"]:
+                raise ValueError("Dataset path must be specified")
+            else:
+                path = self["path"]
+        else:
+            self.options["path"] = path
         self.polarimetric_sets = get_polarimetric_names(path)
         if not self.polarimetric_sets:
             raise ValueError(f"Cannot load polarimetric images from {path}")
@@ -114,10 +149,10 @@ class SinglePhaseRetriever():
         except:
             # Irradiance not yet computed
             self._compute_irradiance()
-        top, bottom = find_rect_region(self.irradiance, self.options["dim"])
+        top, bottom = find_rect_region(self.irradiance, self["dim"])
 
         # Now, we crop all images to the region specified by the top, bottom pair of coords.
-        self.options["rect"] = top, bottom
+        self["rect"] = top, bottom
         self._crop_images(top, bottom)
         return top, bottom
 
@@ -130,17 +165,17 @@ class SinglePhaseRetriever():
         # Find the location of the maximum intensity
         yloc, xloc = np.where(self.cropped_irradiance == self.cropped_irradiance.max())
         loc = yloc[0], xloc[0]
-        self.options["origin"] = loc
+        self["origin"] = loc
 
     def _compute_spectrum(self):
         if not self.cropped:
-            self._crop_images(*self.options["rect"])
+            self._crop_images(*self["rect"])
         ft = fftshift(fft2(ifftshift(self.cropped_irradiance)))
         self.a_ft = a_ft = np.real(np.conj(ft)*ft)
 
     def compute_bandwidth(self, tol=1e-4):
         if not self.cropped:
-            self._crop_images(*self.options["rect"])
+            self._crop_images(*self["rect"])
         # Compute the Fourier Transform of the cropped irradiance to get its bandwidth
         self._compute_spectrum()
         r = get_function_radius(self.a_ft, tol=tol)/2
@@ -258,6 +293,16 @@ class SinglePhaseRetriever():
                 self.options[option] = options[option]
                 if option == "path":
                     self.load_dataset(options[option])
+                elif option == "rect":
+                    rect = options[option]
+                    try:
+                        shape = self.irradiance.shape
+                    except:
+                        raise ValueError("Dataset must be loaded before defining a window!")
+                    top, bottom = bound_rect_to_im(shape, rect)
+                    self.options[option] = [top, bottom]
+                    # Finally, recompute the cropped images!
+                    self._crop_images(top, bottom)
             # Else, we raise an exception
             else:
                 raise KeyError(f"Option {option} does not exist.")

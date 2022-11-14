@@ -113,6 +113,9 @@ class wxEntryPanel(wx.Panel):
 
         return values
 
+    def GetPgrid(self):
+        return self.pgrid
+
     def SetValue(self, **props):
         for name in props:
             if name not in self.iter:

@@ -1,5 +1,6 @@
 import wx
 from wx.lib.agw.floatspin import EVT_FLOATSPIN
+from wx.propgrid import EVT_PG_CHANGED
 import numpy as np
 import json
 import multiprocessing as mp
@@ -87,6 +88,7 @@ class wxGUI(wx.Frame):
         self.entries.GetButton("search").Bind(wx.EVT_BUTTON, self.OnLoadClick)
         self.entries.GetButton("autoadjust").Bind(wx.EVT_BUTTON, self.OnAutoadjust)
         self.entries.GetButton("begin").Bind(wx.EVT_BUTTON, self.OnRetrieve)
+        self.entries.GetPgrid().Bind(EVT_PG_CHANGED, self.OnSpecChange)
 
         # Explorer tab
         self.explorer = explorer = DataExplorer(notebook)
@@ -148,6 +150,13 @@ class wxGUI(wx.Frame):
         # Replot everything
         self.OnReconfig()
 
+    def _plot_irradiance(self):
+        self.plotter.set_imshow("Cropped irradiance", self.retriever.cropped_irradiance, cmap="gray")
+
+    def _plot_bandwidth(self):
+        a_ft_log = np.log10(self.retriever.a_ft)
+        self.plotter.set_imshow("Autocorrelation spectrum", a_ft_log, cmap="viridis")
+
     def OnReconfig(self, event=None):
         # First, we need to get all the configurations from the entries
         values = self.entries.GetValues()
@@ -160,10 +169,12 @@ class wxGUI(wx.Frame):
         self.retriever.config(path=values["path"], lamb=values["lamb"],
                 rect=(top, bottom), bandwidth=bw/2, dim=width, pixel_size=values["pixel_size"], n_max=values["n_iter"])
         self.retriever._compute_spectrum()
-        a_ft_log = np.log10(self.retriever.a_ft)
+        #a_ft_log = np.log10(self.retriever.a_ft)
         # Plot the relevant information...
-        self.plotter.set_imshow("Cropped irradiance", self.retriever.cropped_irradiance, cmap="gray")
-        self.plotter.set_imshow("Autocorrelation spectrum", a_ft_log, cmap="viridis")
+        self._plot_irradiance()
+        self._plot_bandwidth()
+        #self.plotter.set_imshow("Cropped irradiance", self.retriever.cropped_irradiance, cmap="gray")
+        #self.plotter.set_imshow("Autocorrelation spectrum", a_ft_log, cmap="viridis")
 
         # Draw the rectangle and circle specifiying the region of interest and the
         # bandwidth.
@@ -298,10 +309,10 @@ class wxGUI(wx.Frame):
     def update_results(self, Ex, Ey):
         self.plotter.set_imshow("Results", np.angle(Ex), shape=(2, 2), num=1, cmap="twilight_shifted",
                 vmin=-np.pi, vmax=np.pi)
-        self.plotter.set_imshow("Results", abs(Ex), shape=(2, 2), num=2)
+        self.plotter.set_imshow("Results", abs(Ex), shape=(2, 2), num=2, cmap="gray")
         self.plotter.set_imshow("Results", np.angle(Ey), shape=(2, 2), num=3, cmap="twilight_shifted",
                 vmin=-np.pi, vmax=np.pi)
-        self.plotter.set_imshow("Results", abs(Ey), shape=(2, 2), num=4)
+        self.plotter.set_imshow("Results", abs(Ey), shape=(2, 2), num=4, cmap="gray")
 
     def OnExplore(self, event):
         if not self.retriever.finished:
@@ -332,6 +343,46 @@ class wxGUI(wx.Frame):
             dialog = wx.MessageDialog(self, "Could not export any recovered data",
                     style=wx.OK | wx.CENTRE | wx.ICON_ERROR)
             dialog.ShowModal()
+
+    def OnSpecChange(self, event):
+        """Change properties of the retriever as they are modified in the pgrid entry
+        panel."""
+        values = self.entries.GetValues()
+        # FIXME: Change wxentries so that its keys are the same as those of the retriever
+        for key in values:
+            if key == "lamb":
+                self.retriever["lamb"] = values[key]
+
+            elif key == "n_iter":
+                self.retriever["n_max"] = values[key]
+
+            elif key == "bandwidth":
+                self.retriever[key] = bw = values[key]
+                width = values["window_size"]
+                self.plotter.set_circle("Autocorrelation spectrum", (width//2, width//2), 2*bw, color="red")
+            elif key == "window_size":
+                width = values[key]
+                if width != self.retriever["dim"]:
+                    self.retriever["dim"] = dim
+                    rect_center = values["window_center"]
+                    top = [int(i)-width//2 for i in rect_center]
+                    bottom = [int(i)+width//2 for i in rect_center]
+                    self.plotter.set_rectangle("Irradiance", top, width, width)
+
+            elif key == "window_center":
+               rect_center = values[key]
+               top = [int(i)-width//2 for i in rect_center]
+               bottom = [int(i)+width//2 for i in rect_center]
+               self.retriever["rect"] = [top, bottom]
+               # The retriever will tell us if the rect coordinates are the correct ones
+               top, bottom = self.retriever["rect"]
+               width = self.retriever["dim"]
+               center = [str(int(i)+width//2) for i in top]
+               # Set the correct values in the entry widget
+               self.entries.SetValue(window_center=center)
+               # Finally, set the rectangle visible on screen
+               self.plotter.set_rectangle("Irradiance", top, width, width)
+               self._plot_irradiance()
 
     def OnQuit(self, event):
         self.Close()
