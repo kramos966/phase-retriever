@@ -274,8 +274,7 @@ class SinglePhaseRetriever():
         exphi_x = (np.asarray(self.reals[0])+1j*np.asarray(self.imags[0])).reshape((dim, dim))
         exphi_y = (np.asarray(self.reals[1])+1j*np.asarray(self.imags[1])).reshape((dim, dim))
         # Now, impose the phase difference as obtained experimentally through the Stokes parameters
-        irradiances = [self.cropped[0][pol] for pol in range(6)]
-        stokes = get_stokes_parameters(irradiances)
+        stokes = self.get_stokes()
         delta = np.arctan2(stokes[3], stokes[2])
         # The phase origin will correspond to the value of the phase where the maximum of irradiance lies
         origin = self.options["origin"]
@@ -284,8 +283,12 @@ class SinglePhaseRetriever():
 
         exphi_x /= exphi_x[origin[0], origin[1]]
         exphi_y /= exphi_y[origin[0], origin[1]]
-        exphi_x *= e_delta_0
+        exphi_y *= e_delta_0
         return exphi_x, exphi_y
+
+    def get_stokes(self):
+        irradiances = [self.cropped[0][pol] for pol in range(6)]
+        return get_stokes_parameters(irradiances)
 
     def config(self, **options):
         #def config(self, pixel_size=None, dim=256, n_max=200, eps=0.01, radius=None, origin=None):
