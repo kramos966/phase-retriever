@@ -46,25 +46,24 @@ def lowpass_filter(bw, *amps):
 
 class SinglePhaseRetriever():
     # TODO: Crea una classe que encapsuli completament el mètode de recuperació de fase
-    options = {
+    def __init__(self, n_max=200):
+        self.options = {
             "pixel_size":None,  # MUST BE SCALED ACCORDING TO THE WAVELENGTH
             "dim"       :256,
             "rect"      :None,
-            "n_max"     :200,
+            "n_max"     :n_max,
             "eps"       :0.01,
             "bandwidth" :None,
             "origin"    :None,
             "lamb"      :None,
             "path"      :None
             }
-    irradiance = None
-    images = {}
-    cropped = {}
-    cropped_irradiance = None
-    a_ft = None
-    mse = [[], []]
-    def __init__(self, n_max=200):
-        self.options["n_max"] = n_max          # Maximum number of iterations
+        self.irradiance = None
+        self.images = {}
+        self.cropped = {}
+        self.cropped_irradiance = None
+        self.a_ft = None
+        self.mse = [[], []]
 
     def __getitem__(self, key):
         return self.options[key]
