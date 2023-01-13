@@ -235,11 +235,12 @@ class SinglePhaseRetriever():
         self.reals = [mp.Array("d", range(0, int(n**2))), mp.Array("d", range(0, int(n**2)))]
         self.imags = [mp.Array("d", range(0, int(n**2))), mp.Array("d", range(0, int(n**2)))]
         # List with each of the processes, to keep track of them
+        eps = self["eps"]
         self.processes = \
                 [mp.Process(target=multi, args=(H, self.options["n_max"], phi_0, *A_x),
-                    kwargs={"queue":self.queues[0], "real":self.reals[0], "imag":self.imags[0]}),
+                    kwargs={"queue":self.queues[0], "real":self.reals[0], "imag":self.imags[0], "eps":eps}),
                  mp.Process(target=multi, args=(H, self.options["n_max"], phi_0, *A_y),
-                    kwargs={"queue":self.queues[1], "real":self.reals[1], "imag":self.imags[1]})]
+                     kwargs={"queue":self.queues[1], "real":self.reals[1], "imag":self.imags[1], "eps":eps})]
         # Begin monitoring
         if monitor:
             self.monitor_process(*args)
