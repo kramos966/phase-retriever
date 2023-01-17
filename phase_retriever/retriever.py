@@ -226,6 +226,7 @@ class SinglePhaseRetriever():
         # Finally, we create an initial guess for the phase of both components
         #phi_0 = np.zeros((n, n))
         phi_0 = np.random.rand(n, n)
+        #phi_0 = np.arctan2(x, y)
 
         # We set up the multiprocessing environment. Just two processes, as we have two phases to recover
         self.queues = [mp.Queue(), mp.Queue()]
@@ -279,7 +280,7 @@ class SinglePhaseRetriever():
         # The phase origin will correspond to the value of the phase where the maximum of irradiance lies
         origin = self.options["origin"]
         delta_0 = delta[origin[0], origin[1]]
-        e_delta_0 = np.exp(1j*delta_0)
+        e_delta_0 = np.exp(-1j*delta_0) # -1j Seems to be THE RIGHT WAY(TM) to do it
 
         exphi_x /= exphi_x[origin[0], origin[1]]
         exphi_y /= exphi_y[origin[0], origin[1]]
