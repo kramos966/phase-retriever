@@ -100,7 +100,7 @@ def get_polarimetric_npz(folder, pol_keys={0:"a0", 1:"a45", 2:"a90",
         polarimetric_sets[int(z)] = {}
         polarimetric_sets[int(z)]["scale"] = scale
         for i in range(6):
-            polarimetric_sets[i] = data[pol_keys[i]]
+            polarimetric_sets[int(z)][i] = data[pol_keys[i]]
     return polarimetric_sets
 
 def get_polarimetric_names_kavan(folder, ftype="TIFF", pol_keys={0:"LX", 1:"L45", 
