@@ -94,7 +94,7 @@ def get_polarimetric_npz(folder, pol_keys={0:"a0", 1:"a45", 2:"a90",
             names.append(name)
 
     for name in names:
-        data = np.load(os.path.join(folder, name))
+        data = np.load(os.path.join(folder, name), allow_pickle=True)
         z = data["z"]
         scale = data["scale"]
         polarimetric_sets[int(z)] = {}

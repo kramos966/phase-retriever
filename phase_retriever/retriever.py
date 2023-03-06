@@ -5,7 +5,7 @@ import imageio
 
 from .algorithm import multi
 from .misc.radial import get_function_radius
-from .misc.file_selector import get_polarimetric_names
+from .misc.file_selector import get_polarimetric_names, get_polarimetric_npz
 from .misc.central_region import find_rect_region
 from .misc.stokes import get_stokes_parameters
 
@@ -72,7 +72,7 @@ class SinglePhaseRetriever():
         # TODO: Check types correctly
         self.config(**{key:value})
 
-    def load_dataset(self, path=None):
+    def load_dataset(self, path=None, kind="png"):
         self.irradiance = None
         self.images = {}
         # If the user does not input a path
@@ -84,7 +84,11 @@ class SinglePhaseRetriever():
                 path = self["path"]
         else:
             self.options["path"] = path
-        self.polarimetric_sets = get_polarimetric_names(path)
+        
+        if kind == "png":
+            self.polarimetric_sets = get_polarimetric_names(path)
+        elif kind == "npz":
+            self.polarimetric_sets = get_polarimetric_npz(path)
         if not self.polarimetric_sets:
             raise ValueError(f"Cannot load polarimetric images from {path}")
 
